@@ -24,7 +24,7 @@ The tag is not used by this repo's own code (only `internal/client/version_types
 ## Commands
 
 ```shell
-go build -tags checkmk_all -o bin/terraform-provider-checkmk .   # Build binary
+go build -tags checkmk_all -o bin/terraform-provider-checkmk .   # Build binary (unversioned)
 go build -tags checkmk_all -v ./...                              # Compile-check everything
 go vet -tags checkmk_all ./...
 golangci-lint run                                                # Reads build-tags from .golangci.yml
@@ -40,6 +40,8 @@ Acceptance tests need `TF_ACC=1` plus `CHECKMK_URL`, `CHECKMK_USERNAME`, `CHECKM
 ./scripts/run_tests.sh --version 2.4 --verbose      # One version
 ./scripts/run_tests.sh --all                        # 2.2, 2.3 and 2.4
 ```
+
+This is the Open Desk fork, so it carries its own version (`main.go`'s `version` default, currently `0.0.6-od.1`, overridable with `-ldflags "-X main.version=..."`). That value reaches `resp.Version` and the CheckMK `User-Agent`. Release builds go out under a versioned filename — see `README-OD-DEV.md` for the scheme and the current build's provenance.
 
 Run a single test with `-run`:
 

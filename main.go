@@ -23,7 +23,10 @@ import (
 var (
 	// these will be set by the goreleaser configuration
 	// to appropriate values for the compiled binary.
-	version string = "dev"
+	// Open Desk fork: the default is the current fork version rather than "dev",
+	// so a plain `go build` still identifies itself correctly to CheckMK.
+	// Override with -ldflags "-X main.version=<version>".
+	version string = "0.0.6-od.1"
 
 	// goreleaser can pass other information to the main package, such as the specific commit
 	// https://goreleaser.com/cookbooks/using-main.version/
