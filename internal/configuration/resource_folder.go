@@ -60,9 +60,6 @@ func (r *FolderResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"parent": schema.StringAttribute{
 				Description: "The parent folder path. Use '/' for root level folders.",
 				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"title": schema.StringAttribute{
 				Description: "The display title of the folder. If not set, defaults to the folder name.",
@@ -201,15 +198,26 @@ func (r *FolderResource) Read(ctx context.Context, req resource.ReadRequest, res
 
 func (r *FolderResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data FolderResourceModel
+	var state FolderResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	cfg := common.BuildSimpleBaseConfig(r.providerData, types.BoolNull())
+	currentParent := common.GetStringValueOr(state.Parent, "/")
+	desiredParent := common.GetStringValueOr(data.Parent, currentParent)
+	currentPath := common.GetStringValue(state.Path)
+	desiredPath := computeFolderPath(desiredParent, data.Name.ValueString())
+	parentChanged := currentParent != desiredParent
+	titleChanged := !state.Title.Equal(data.Title)
+	attributesProvided := !data.Attributes.IsNull() && !data.Attributes.IsUnknown()
+	attributesChanged := attributesProvided && !state.Attributes.Equal(data.Attributes)
 
-	attributes := make(map[string]interface{})
-	if !data.Attributes.IsNull() && !data.Attributes.IsUnknown() {
+	var attributes map[string]interface{}
+	if attributesProvided {
+		attributes = make(map[string]interface{})
 		elements := make(map[string]types.String)
 		resp.Diagnostics.Append(data.Attributes.ElementsAs(ctx, &elements, false)...)
 		if resp.Diagnostics.HasError() {
@@ -226,18 +234,70 @@ func (r *FolderResource) Update(ctx context.Context, req resource.UpdateRequest,
 		title = data.Title.ValueString()
 	}
 
-	updateReq := &client.FolderUpdateRequest{
-		Title:      title,
-		Attributes: attributes,
-	}
-
-	folder, err := r.providerData.Client.UpdateFolder(ctx, data.Path.ValueString(), updateReq, "")
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update folder: %s", err))
+	if !parentChanged && !titleChanged && !attributesChanged {
+		data.ID = types.StringValue(desiredPath)
+		data.Path = types.StringValue(desiredPath)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
 
-	data.Title = types.StringValue(folder.Title)
+	getETag := func(ctx context.Context, path string) (string, error) {
+		return common.FetchETagIfStrict(ctx, cfg.StrictResourceLocking, func(ctx context.Context) (string, error) {
+			result, err := r.providerData.Client.GetFolderWithETag(ctx, path)
+			if err != nil {
+				return "", err
+			}
+			return result.ETag, nil
+		})
+	}
+
+	var folder *client.Folder
+
+	if parentChanged {
+		etag, err := getETag(ctx, currentPath)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch folder ETag before move: %s", err))
+			return
+		}
+
+		folder, err = r.providerData.Client.MoveFolder(ctx, currentPath, desiredParent, etag)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to move folder: %s", err))
+			return
+		}
+		currentPath = desiredPath
+	}
+
+	if titleChanged || attributesChanged {
+		etag, err := getETag(ctx, currentPath)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch folder ETag before update: %s", err))
+			return
+		}
+
+		updateReq := &client.FolderUpdateRequest{
+			Title:      title,
+			Attributes: attributes,
+		}
+
+		folder, err = r.providerData.Client.UpdateFolder(ctx, currentPath, updateReq, etag)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update folder: %s", err))
+			return
+		}
+	}
+
+	data.ID = types.StringValue(desiredPath)
+	data.Path = types.StringValue(desiredPath)
+	data.Parent = types.StringValue(desiredParent)
+	data.Title = types.StringValue(title)
+	if folder != nil {
+		if folder.Extensions.Path != "" {
+			data.ID = types.StringValue(folder.Extensions.Path)
+			data.Path = types.StringValue(folder.Extensions.Path)
+		}
+		data.Title = types.StringValue(folder.Title)
+	}
 
 	// Keep the configured attribute keys in state (full replacement); only fall
 	// back to the API response when the attribute map was left unset.

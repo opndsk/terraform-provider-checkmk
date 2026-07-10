@@ -32,6 +32,11 @@ type HostUpdateRequest struct {
 	Attributes map[string]interface{} `json:"attributes,omitempty"`
 }
 
+// HostMoveRequest is the request body for moving a host between folders.
+type HostMoveRequest struct {
+	TargetFolder string `json:"target_folder"`
+}
+
 // HostWithETag wraps a Host with its ETag for strict resource locking
 type HostWithETag struct {
 	Host *Host
@@ -107,6 +112,36 @@ func (c *Client) UpdateHost(ctx context.Context, hostName string, req *HostUpdat
 	// Handle 428 Precondition Required (drift detection)
 	if resp.StatusCode == 428 {
 		return nil, NewDriftError("Host", hostName)
+	}
+
+	if err := HandleNotFound(resp, "Host", hostName); err != nil {
+		return nil, err
+	}
+
+	var host Host
+	if err := c.handleResponse(resp, &host); err != nil {
+		return nil, err
+	}
+
+	return &host, nil
+}
+
+// MoveHost moves an existing host to another folder.
+// If etag is provided (non-empty), it will be used in the If-Match header for strict resource locking.
+// If etag is empty, uses If-Match: * to bypass ETag validation.
+func (c *Client) MoveHost(ctx context.Context, hostName string, targetFolder string, etag string) (*Host, error) {
+	path := fmt.Sprintf("/objects/host_config/%s/actions/move/invoke", hostName)
+	req := &HostMoveRequest{
+		TargetFolder: PathToAPIFormat(targetFolder),
+	}
+
+	resp, err := c.requestWithHeaders(ctx, "POST", path, req, BuildETagHeaders(etag))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := HandlePreconditionFailed(resp, "Host", hostName); err != nil {
+		return nil, err
 	}
 
 	if err := HandleNotFound(resp, "Host", hostName); err != nil {

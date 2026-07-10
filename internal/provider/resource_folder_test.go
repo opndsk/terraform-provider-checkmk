@@ -158,6 +158,48 @@ func TestAccFolderResource_Nested(t *testing.T) {
 	})
 }
 
+func TestAccFolderResource_MoveParent(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckFolderDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccFolderResourceConfigMoveParent(
+					"tf-acc-folder-move-src",
+					"tf-acc-folder-move-dst",
+					"tf-acc-folder-move-child",
+					"source",
+					"Movable Child",
+				),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("checkmk_folder.child", "parent", "/tf-acc-folder-move-src"),
+					resource.TestCheckResourceAttr("checkmk_folder.child", "path", "/tf-acc-folder-move-src/tf-acc-folder-move-child"),
+					testAccCheckFolderMoved("", "/tf-acc-folder-move-src/tf-acc-folder-move-child"),
+				),
+			},
+			{
+				Config: testAccFolderResourceConfigMoveParent(
+					"tf-acc-folder-move-src",
+					"tf-acc-folder-move-dst",
+					"tf-acc-folder-move-child",
+					"target",
+					"Moved Child",
+				),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("checkmk_folder.child", "parent", "/tf-acc-folder-move-dst"),
+					resource.TestCheckResourceAttr("checkmk_folder.child", "path", "/tf-acc-folder-move-dst/tf-acc-folder-move-child"),
+					resource.TestCheckResourceAttr("checkmk_folder.child", "title", "Moved Child"),
+					testAccCheckFolderMoved(
+						"/tf-acc-folder-move-src/tf-acc-folder-move-child",
+						"/tf-acc-folder-move-dst/tf-acc-folder-move-child",
+					),
+				),
+			},
+		},
+	})
+}
+
 // testAccCheckFolderDestroy verifies that folders have been destroyed
 func testAccCheckFolderDestroy(s *terraform.State) error {
 	// Create a client using environment variables
@@ -250,4 +292,67 @@ resource "checkmk_folder" "child" {
   title  = %[4]q
 }
 `, parentName, parentTitle, childName, childTitle)
+}
+
+func testAccFolderResourceConfigMoveParent(sourceParentName, targetParentName, childName, selectedParent, childTitle string) string {
+	childParentRef := "checkmk_folder.source.path"
+	if selectedParent == "target" {
+		childParentRef = "checkmk_folder.target.path"
+	}
+
+	return fmt.Sprintf(`
+resource "checkmk_folder" "source" {
+  name   = %[1]q
+  parent = "/"
+  title  = "Source Parent"
+}
+
+resource "checkmk_folder" "target" {
+  name   = %[2]q
+  parent = "/"
+  title  = "Target Parent"
+}
+
+resource "checkmk_folder" "child" {
+  name   = %[3]q
+  parent = %[5]s
+  title  = %[4]q
+}
+`, sourceParentName, targetParentName, childName, childTitle, childParentRef)
+}
+
+func testAccCheckFolderMoved(oldPath, newPath string) resource.TestCheckFunc {
+	return func(_ *terraform.State) error {
+		c, err := client.NewClient(
+			testAccGetEnv("CHECKMK_URL"),
+			testAccGetEnv("CHECKMK_USERNAME"),
+			testAccGetEnv("CHECKMK_PASSWORD"),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create client for folder check: %s", err)
+		}
+
+		ctx := context.Background()
+		folder, err := c.GetFolder(ctx, newPath)
+		if err != nil {
+			return fmt.Errorf("failed to fetch moved folder %s: %s", newPath, err)
+		}
+		if folder.Extensions.Path != newPath {
+			return fmt.Errorf("expected folder path %s, got %s", newPath, folder.Extensions.Path)
+		}
+
+		if oldPath == "" {
+			return nil
+		}
+
+		_, err = c.GetFolder(ctx, oldPath)
+		if err == nil {
+			return fmt.Errorf("expected old folder path %s to be absent after move", oldPath)
+		}
+		if apiErr, ok := err.(*client.APIError); ok && apiErr.Status == 404 {
+			return nil
+		}
+
+		return fmt.Errorf("expected 404 for old folder path %s, got: %v", oldPath, err)
+	}
 }

@@ -193,17 +193,25 @@ func (r *HostResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 
 func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data HostResourceModel
+	var state HostResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	cfg := common.BuildBaseConfig(r.providerData, data.Activate, data.ForceForeignChanges, data.StrictResourceLocking)
+	currentFolder := common.GetStringValueOr(state.Folder, "/")
+	desiredFolder := common.GetStringValueOr(data.Folder, currentFolder)
+	folderChanged := currentFolder != desiredFolder
+	attributesProvided := !data.Attributes.IsNull() && !data.Attributes.IsUnknown()
+	attributesChanged := attributesProvided && !state.Attributes.Equal(data.Attributes)
 
 	// Convert attributes map to map[string]interface{}, promoting unprefixed
 	// built-in tag groups (e.g. "agent" -> "tag_agent") to their API form.
-	attributes := make(map[string]interface{})
-	if !data.Attributes.IsNull() {
+	var attributes map[string]interface{}
+	if attributesProvided {
+		attributes = make(map[string]interface{})
 		promoter := common.NewAttributePromoter(r.providerData, "checkmk_host")
 		for key, value := range data.Attributes.Elements() {
 			if strValue, ok := value.(types.String); ok {
@@ -212,25 +220,57 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		}
 	}
 
-	etag, err := common.FetchETagIfStrict(ctx, cfg.StrictResourceLocking, func(ctx context.Context) (string, error) {
-		result, err := r.providerData.Client.GetHostWithETag(ctx, data.HostName.ValueString())
-		if err != nil {
-			return "", err
-		}
-		return result.ETag, nil
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch host ETag: %s", err))
+	if !folderChanged && !attributesChanged {
+		data.ID = types.StringValue(data.HostName.ValueString())
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
 
-	updateReq := &client.HostUpdateRequest{
-		Attributes: attributes,
+	getETag := func(ctx context.Context) (string, error) {
+		return common.FetchETagIfStrict(ctx, cfg.StrictResourceLocking, func(ctx context.Context) (string, error) {
+			result, err := r.providerData.Client.GetHostWithETag(ctx, data.HostName.ValueString())
+			if err != nil {
+				return "", err
+			}
+			return result.ETag, nil
+		})
 	}
 
-	host, err := r.providerData.Client.UpdateHost(ctx, data.HostName.ValueString(), updateReq, etag)
-	if err != nil {
-		if !common.HandleDriftWarning(err, resp, data.HostName.ValueString()) {
+	var host *client.Host
+
+	if folderChanged {
+		etag, err := getETag(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch host ETag before move: %s", err))
+			return
+		}
+
+		host, err = r.providerData.Client.MoveHost(ctx, data.HostName.ValueString(), desiredFolder, etag)
+		if err != nil {
+			if common.HandleDriftWarning(err, resp, data.HostName.ValueString()) {
+				return
+			}
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to move host: %s", err))
+			return
+		}
+	}
+
+	if attributesChanged {
+		etag, err := getETag(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to fetch host ETag before update: %s", err))
+			return
+		}
+
+		updateReq := &client.HostUpdateRequest{
+			Attributes: attributes,
+		}
+
+		host, err = r.providerData.Client.UpdateHost(ctx, data.HostName.ValueString(), updateReq, etag)
+		if err != nil {
+			if common.HandleDriftWarning(err, resp, data.HostName.ValueString()) {
+				return
+			}
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update host: %s", err))
 			return
 		}
@@ -242,8 +282,10 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 
 	// Update state with API response
+	data.ID = types.StringValue(data.HostName.ValueString())
 	if host != nil {
 		data.ID = types.StringValue(host.ID)
+		data.Folder = types.StringValue(host.Extensions.Folder)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

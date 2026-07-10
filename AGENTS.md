@@ -37,6 +37,8 @@ Follow standard Go formatting with `gofmt` and idiomatic package layout. Keep pa
 
 Place tests beside the code they cover. Unit and helper tests should run without external services. Acceptance tests require `TF_ACC=1` plus `CHECKMK_URL`, `CHECKMK_USERNAME`, and `CHECKMK_PASSWORD`; `scripts/run_tests.sh` can derive these from healthy Docker containers. For manual CRUD/import verification, add cases under `testing/lifecycle/<resource>/`.
 
+When reviewing changes, check not only that tests pass but also that the new logic preserves the previous semantics unless the behavior change is intentional and documented.
+
 ## Commit & Pull Request Guidelines
 
 Recent history uses short prefixed subjects such as `Fix: ...`, `Feature: ...`, and scoped hotfixes like `Fix(Hot): ...`. Keep commits imperative and focused. PRs should follow `.github/pull_request_template.md`: describe the change, mark its type, link issues with `Fixes #123`, list test commands, note CheckMK versions exercised, and include docs/example updates when behavior or schema changes.

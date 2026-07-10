@@ -34,6 +34,11 @@ type FolderUpdateRequest struct {
 	Attributes map[string]interface{} `json:"attributes,omitempty"`
 }
 
+// FolderMoveRequest is the request body for moving a folder.
+type FolderMoveRequest struct {
+	Destination string `json:"destination"`
+}
+
 // FolderWithETag wraps a Folder with its ETag for strict resource locking
 type FolderWithETag struct {
 	Folder *Folder
@@ -44,10 +49,13 @@ type FolderWithETag struct {
 // User format: /IE/MUL/Server
 // API format:  ~IE~MUL~Server
 func PathToAPIFormat(path string) string {
-	if path == "/" {
+	if path == "" || path == "/" || path == "~" {
 		return "~"
 	}
-	// Remove leading slash and replace / with ~
+
+	// Normalize supported delimiters to the tilde form required in URL paths.
+	path = strings.ReplaceAll(path, "\\", "/")
+	path = strings.ReplaceAll(path, "~", "/")
 	path = strings.TrimPrefix(path, "/")
 	return "~" + strings.ReplaceAll(path, "/", "~")
 }
@@ -130,6 +138,36 @@ func (c *Client) UpdateFolder(ctx context.Context, path string, req *FolderUpdat
 	apiPath := fmt.Sprintf("/objects/folder_config/%s", PathToAPIFormat(path))
 
 	resp, err := c.requestWithHeaders(ctx, "PUT", apiPath, req, BuildETagHeaders(etag))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := HandlePreconditionFailed(resp, "Folder", path); err != nil {
+		return nil, err
+	}
+
+	if err := HandleNotFound(resp, "Folder", path); err != nil {
+		return nil, err
+	}
+
+	var folder Folder
+	if err := c.handleResponse(resp, &folder); err != nil {
+		return nil, err
+	}
+
+	return &folder, nil
+}
+
+// MoveFolder moves an existing folder under a different parent folder.
+// If etag is provided (non-empty), it will be used in the If-Match header for strict resource locking.
+// If etag is empty, uses If-Match: * to bypass ETag validation.
+func (c *Client) MoveFolder(ctx context.Context, path string, destination string, etag string) (*Folder, error) {
+	apiPath := fmt.Sprintf("/objects/folder_config/%s/actions/move/invoke", PathToAPIFormat(path))
+	req := &FolderMoveRequest{
+		Destination: PathToAPIFormat(destination),
+	}
+
+	resp, err := c.requestWithHeaders(ctx, "POST", apiPath, req, BuildETagHeaders(etag))
 	if err != nil {
 		return nil, err
 	}

@@ -30,6 +30,16 @@ func TestPathToAPIFormat(t *testing.T) {
 			input:    "/country/location/type/subtype",
 			expected: "~country~location~type~subtype",
 		},
+		{
+			name:     "tilde-delimited folder",
+			input:    "~country~location~type~subtype",
+			expected: "~country~location~type~subtype",
+		},
+		{
+			name:     "backslash-delimited folder",
+			input:    `\country\location\type\subtype`,
+			expected: "~country~location~type~subtype",
+		},
 	}
 
 	for _, tt := range tests {
