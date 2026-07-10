@@ -25,7 +25,7 @@ go build -tags checkmk_all ./...
 
 # Build, versioitu nimi
 VERSION=0.0.6-od.1
-go build -tags checkmk_all \
+go build -tags checkmk_all -trimpath -buildvcs=false \
   -ldflags "-X main.version=${VERSION}" \
   -o "bin/terraform-provider-checkmk_v${VERSION}" .
 ```
@@ -35,8 +35,16 @@ go build -tags checkmk_all \
 Tarkista buildatusta binäärista, että versio meni perille:
 
 ```shell
-go version -m bin/terraform-provider-checkmk_v0.0.6-od.1 | grep -- -ldflags
+strings bin/terraform-provider-checkmk_v0.0.6-od.1 | grep -Fx 0.0.6-od.1
 ```
+
+Huomaa, ettei `go version -m` näytä `-ldflags`-riviä `-trimpath`-buildissa, joten versio tarkistetaan merkkijonona.
+
+## Miksi -trimpath ja -buildvcs=false
+
+Ilman näitä lippuja Go leimaa binääriin git-tiedot (`vcs.revision`, `vcs.time`, `vcs.modified`) sekä absoluuttiset lähdepolut. Silloin binäärin tavut muuttuvat aina kun git-tila muuttuu, vaikka lähdekoodi olisi identtinen - myös silloin kun ainoa muutos on tämän tiedoston muokkaus. Se tekee tarkistussumman kirjaamisesta mahdotonta: SHA256:n lisääminen tähän muistioon likaa työpuun, jolloin seuraava build tuottaa eri summan kuin muistioon juuri kirjattiin.
+
+`-trimpath -buildvcs=false` irrottaa buildin git-tilasta, jolloin sama lähdekoodi ja sama `VERSION` tuottavat aina saman binäärin. Vasta silloin alla oleva SHA256 on jotain, jonka voi itse toistaa ja tarkistaa. Provenienssi ei katoa: lähdecommit on kirjattu tähän muistioon, ja versio on binäärin sisällä. `-trimpath` on muutenkin käytössä julkaisubuildeissa (`.goreleaser.yml`).
 
 ## Binäärin nimeämiskonventio
 
@@ -49,9 +57,11 @@ Ratkaisu tehdään vastaanottavassa repossa, ei täällä: `iac-pulumi/.provider
 ## Build 0.0.6-od.1 (10.7.2026)
 
 - **Binääri**: `bin/terraform-provider-checkmk_v0.0.6-od.1`
-- **Lähdecommit**: `80b59cf` - "Fix: Use move endpoints for host folder and folder parent changes", plus `main.go`:n versiomuutos
+- **Lähdecommit**: `828ea06` - "Feature: Give the Open Desk fork its own version 0.0.6-od.1", joka sisältää korjauscommitin `80b59cf` ("Fix: Use move endpoints for host folder and folder parent changes")
 - **Go-versio**: go1.26.5 (`go.mod` vaatii vähintään go1.24.1)
-- **SHA256**: `5b8384402212b34b045d0ef8e084b7309065ab543c46998eb351ba0221a8865d`
+- **SHA256**: `b86d4a6ac014930eb9aaa38a5636c80fd8f1f8a4590ab3b7da846ef6bc78f123`
+
+Summa on toistettavissa: sama lähdecommit, sama Go-versio ja yllä oleva build-komento tuottavat aina saman binäärin.
 
 Binääri kopioidaan `open-desk-infra`-repoon polkuun `iac-pulumi/.providers/checkmk/`, ja se rekisteröidään sieltä Pulumille manuaalisesti (`pulumi package add terraform-provider <polku>`). Kopioinnista ja rekisteröinnistä vastaa vastaanottava repo, ei tämä - tästä reposta ei kirjoiteta sinne mitään.
 
