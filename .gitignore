@@ -85,4 +85,7 @@ scripts/fetch_openapi_specs.sh
 scripts/generate_client.sh
 scripts/generate_types.sh
 cmd/
-internal/client/generated
+internal/client/generated1
+
+# opendesk-dev
+.tmp

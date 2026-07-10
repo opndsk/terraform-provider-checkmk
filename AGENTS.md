@@ -12,6 +12,9 @@ Treat them as higher-priority guidance: if a rule here and a rule in `CLAUDE-OD-
 For Codex sessions, `.claude/CLAUDE-OD-Memory-Management.md` does not enable any special built-in memory system.
 Treat `.claude/memory/*` only as normal repository files and follow that convention only when the user explicitly asks for it.
 
+This repository has no `npm`-based Markdown lint or spell-check setup.
+Do not run `npm run lint:md` or `npm run lint:spell` here unless that tooling is added later; only the repository's actual configured tooling should be used.
+
 ## Project Structure & Module Organization
 
 `main.go` is the provider entrypoint and also defines the `go generate` hooks used for docs. Core implementation lives under `internal/`: `provider/` contains provider wiring, resources, functions, and acceptance tests; `client/` wraps the CheckMK REST API and version handling; `common/` holds shared schema and validation helpers; `configuration/`, `groups/`, `hosts/`, `labels/`, `rules/`, and `users/` contain domain-specific resources and registration code. Generated registry docs live in `docs/`, their templates live in `templates/`, runnable examples live in `examples/`, and container/manual test helpers live in `scripts/` and `testing/`.
@@ -22,7 +25,7 @@ Use the same commands CI uses:
 
 - `go build -tags checkmk_all -v ./...` builds the provider with all generated CheckMK types enabled.
 - `go test -tags checkmk_all -race -v -skip 'TestAcc' ./...` runs unit tests only.
-- `golangci-lint run` runs the configured linters from `.golangci.yml`.
+- `golangci-lint run` runs the configured Go linters from `.golangci.yml`.
 - `go generate -tags checkmk_all ./...` formats `examples/` and regenerates `docs/`; run this after changing schemas, resource docs, or examples.
 - `./scripts/run_tests.sh --version 2.4 --verbose` runs acceptance tests against a local CheckMK container. Use `--all` to test 2.2, 2.3, and 2.4.
 
