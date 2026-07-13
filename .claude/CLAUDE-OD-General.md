@@ -19,11 +19,14 @@ npm run lint:md032:fix   # Fix blank lines around lists
 
 **Lint cadence:** Run Markdown lint (`npm run lint:md`) and spell-check (`npm run lint:spell`) **always before a `git push`**. Do NOT run them automatically after each Markdown edit. Outside of a push, run them only when explicitly asked (e.g. "lint md ja spell").
 
+**Lint scope:** Linting gates only the files changed in the push you are about to make. `npm run lint:md` globs the whole repo (`**/*.md`), so it will also report pre-existing errors in files you did not touch - those do NOT block your push and are fixed separately. Before pushing, confirm you did not introduce new errors in the files you changed (filter the output to your changed paths). Use the `:fix` variants (`lint:md:fix`, `lint:md009:fix`, etc.) for mechanical issues in your own changed files.
+
 ## Spell Check Word Lists
 
 Before running any spell-check (`npm run lint:spell` or `npm run lint:spell:file`), move every word in the `words` array of `.vscode/cspell.json` into `.vscode/cspell-words.txt`, then empty that `words` array (`"words": []`). The text file is the single source of truth for project words; keep `cspell.json` free of inline words.
 
 - Insert the moved words into `.vscode/cspell-words.txt` in the file's existing alphabetical (case-insensitive) order, leaving the other lines untouched.
+- **Never re-sort the whole file.** Its existing order does not match any standard locale (it is cspell's / the editor's own collation), so running `sort` reorders dozens of unrelated lines - pure churn, and possibly wrong order. Instead insert each new word **in place**: before the first existing line that is case-insensitively greater than it, touching nothing else. The resulting diff must contain only the added lines.
 - Skip any word that already exists in `.vscode/cspell-words.txt` (case-insensitive) to avoid duplicates.
 - When a spell-check reports a correctly spelled but unknown word, add it to `.vscode/cspell-words.txt` (not to `cspell.json`), in the same alphabetical position.
 

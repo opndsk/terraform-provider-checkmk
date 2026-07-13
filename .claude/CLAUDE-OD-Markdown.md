@@ -20,6 +20,19 @@
 - Do not use `---` horizontal rules as section separators between headings. Use headings alone to structure the document.
 - Mark every command, folder name, and file name in prose with inline code formatting (backticks), e.g. `installimage.conf`, `Asennus-2026-07-08/`, `apt-get update`.
 
+## Checklist items (`- [ ]` / `- [x]`)
+
+`- [x]` means the checklist item's task is **done/resolved** — it does not mean that item's specific option was chosen, or that it was rejected. A conditional item (e.g. "if option B is chosen, do X") gets checked off `[x]` once the overall decision is finalized, even if that specific action was never carried out because a different option was picked.
+
+When a checklist item in a planning/notes document resolves (decided, completed, or made moot by a different choice), keep the original line — do not delete or rewrite it. Change it to `- [x]` and add one short indented sub-bullet explaining the outcome, e.g.:
+
+```markdown
+- [x] Jos vaihtoehto B: valitse VM 108:lle vapaa osoite DEV3:n `vmbr1`-verkosta.
+  - Ei enää kesken: A valittiin, joten tätä ei tarvinnut tehdä - jätetty näkyviin varasuunnitelmaa varten.
+```
+
+This preserves the decision history in the document instead of erasing what needed to be considered.
+
 ## Bullet Punctuation (Finnish)
 
 - If a bullet item contains multiple sentences, separate the sentences with a period inside the bullet, but do not add a final period at the end of the item
