@@ -1,0 +1,76 @@
+# Set default behaviour, in case users don't have core.autocrlf set.
+* text=auto eol=lf
+
+# Spellright requires crlf in Windows
+spellright.dict text eol=crlf
+
+# Denote all files that are truly binary and should not be modified.
+# Merkkiluokat [Xx] kattavat kaikki kirjainkoot (esim. .png/.PNG/.Png).
+*.7[Zz] binary
+*.[Aa][Aa][Bb] binary
+*.[Aa][Ee][Pp] binary
+*.[Aa][Ii] binary
+*.[Aa][Pp][Kk] binary
+*.[Aa][Ss][Ee] binary
+*.[Aa][Vv][Ii][Ff] binary
+*.[Bb][Aa][Nn][Kk] binary
+*.[Bb][Rr] binary
+*.[Bb][Zz]2 binary
+*.[Cc][Ee][Ll] binary
+*.[Cc][Ll][Aa][Ss][Ss] binary
+*.[Dd][Gg][Nn] binary
+*.[Dd][Ll][Ll] binary
+*.[Dd][Oo][Cc] binary
+*.[Dd][Oo][Cc][Xx] binary
+*.[Dd][Yy][Ll][Ii][Bb] binary
+*.[Ee][Oo][Tt] binary
+*.[Ee][Pp][Ss] binary
+*.[Ee][Xx][Ee] binary
+*.[Ff][Bb][Xx] binary
+*.[Ff][Ll][Aa] binary
+*.[Ff][Ll][Aa][Cc] binary
+*.[Ff][Ll][Vv] binary
+*.[Gg][Ii][Ff] binary
+*.[Gg][Zz] binary
+*.[Ii][Cc][Oo] binary
+*.[Ii][Dd][Mm][Ll] binary
+*.[Ii][Nn][Dd][Dd] binary
+*.[Jj][Aa][Rr] binary
+*.[Jj][Pp][Ee][Gg] binary
+*.[Jj][Pp][Gg] binary
+*.[Mm][Aa][Xx] binary
+*.[Mm][Bb][Zz] binary
+*.[Mm][Kk][Vv] binary
+*.[Mm][Oo][Vv] binary
+*.[Mm][Pp]3 binary
+*.[Mm][Pp]4 binary
+*.[Oo][Dd][Pp] binary
+*.[Oo][Dd][Ss] binary
+*.[Oo][Dd][Tt] binary
+*.[Oo][Tt][Ff] binary
+*.[Pp][Dd][Ff] binary
+*.[Pp][Nn][Gg] binary
+*.[Pp][Pp][Tt] binary
+*.[Pp][Pp][Tt][Xx] binary
+*.[Pp][Ss][Dd] binary
+*.[Rr][Aa][Rr] binary
+*.[Rr][Tt][Ff] binary
+*.[Ss][Oo] binary
+*.[Ss][Ww][Ff] binary
+*.[Tt][Aa][Rr] binary
+*.[Tt][Ff][Ll][Ii][Tt][Ee] binary
+*.[Tt][Ii][Ff] binary
+*.[Tt][Ii][Ff][Ff] binary
+*.[Tt][Tt][Ff] binary
+*.[Uu][Nn][Ii][Tt][Yy][Ww][Ee][Bb] binary
+*.[Ww][Aa][Ss][Mm] binary
+*.[Ww][Aa][Vv] binary
+*.[Ww][Ee][Bb][Mm] binary
+*.[Ww][Ee][Bb][Pp] binary
+*.[Ww][Oo][Ff][Ff] binary
+*.[Ww][Oo][Ff][Ff]2 binary
+*.[Xx][Ll][Ss] binary
+*.[Xx][Ll][Ss][Xx] binary
+*.[Xx][Zz] binary
+*.[Zz][Ii][Pp] binary
+*.[Zz][Ss][Tt] binary
