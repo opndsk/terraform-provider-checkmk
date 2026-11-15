@@ -89,3 +89,4 @@ internal/client/generated1
 
 # opendesk-dev
 .tmp
+.temp
